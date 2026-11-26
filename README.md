@@ -81,3 +81,21 @@ Write-ups dos desafios de segurança web resolvidos na plataforma [RedVault](htt
 **Causa raiz:** A aplicação confunde **autenticação** (saber quem é o usuário) com **autorização** (verificar se esse usuário tem permissão sobre o recurso específico que está pedindo). Como os IDs são sequenciais e previsíveis, bastou incrementar ou trocar o número na URL para acessar dados de outra conta.
 
 **O que aprendi:** Estar logado não deveria ser suficiente para acessar qualquer recurso do sistema, o backend precisa sempre confirmar que o dono da sessão é também o dono do dado pedido. IDs sequenciais e previsíveis (1, 2, 3...) tornam esse tipo de falha trivial de explorar, por isso identificadores mais aleatórios (como UUIDs) dificultam, ainda que sozinhos não resolvam o problema de autorização.
+
+## A porta booleana (auth-sql-boolean) - SQL Injection - Iniciante
+
+**Objetivo:** Fazer bypass da query de login da Parsec através de SQL Injection, alcançando uma sessão administrativa sem conhecer a senha real.
+
+**Passo a passo:**
+1. Li o briefing e identifiquei o ponto fraco: a query de login é montada por **concatenação de strings**, sem parametrização, o que significa que o que eu digito nos campos vai direto para dentro do comando SQL.
+2. Entendi que a query provavelmente tinha a forma `WHERE username = '<input>' AND password = '<input>'`, controlando os dois lados da condição.
+3. Usei o nome de usuário `' OR 1=1 --` no campo de login, com qualquer valor no campo de senha.
+4. Essa entrada fecha a aspas da string do `username`, acrescenta a condição `OR 1=1` (sempre verdadeira) e comenta (`--`) o restante da query, incluindo a verificação de senha.
+5. Com a cláusula `WHERE` sempre verdadeira, o login retornou a primeira linha da tabela de usuários, que era a conta `admin`.
+6. Acessei a página autenticada e enviei a flag exibida, no formato `RV{...}`, que foi aceita.
+
+**Técnica principal:** SQL Injection (bypass de autenticação via manipulação booleana da cláusula WHERE).
+
+**Causa raiz:** A aplicação constrói a query SQL por concatenação direta das entradas do usuário, em vez de usar *queries parametrizadas* (prepared statements). Isso permite que qualquer caractere especial de SQL, como aspas simples, altere a lógica da consulta original.
+
+**O que aprendi:** Nunca concatenar entrada do usuário diretamente numa query SQL, por mais "interna" ou "legada" que a tela de login pareça ser. Mesmo sem saber nenhuma senha, só manipulando a sintaxe da própria query foi possível transformar uma condição de autenticação em algo sempre verdadeiro. A defesa correta é sempre usar consultas parametrizadas, que tratam a entrada do usuário como dado puro, nunca como parte do código SQL.
